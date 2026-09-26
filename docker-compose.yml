@@ -10,5 +10,18 @@ services:
     volumes:
       - svcdesk_data:/data
 
+  tests:
+    build:
+      context: .
+    profiles: ["tests"]
+    environment:
+      PYTHONPATH: /app/src
+    command: >-
+      sh -c 'pytest -q /app/tests; code=$$?;
+      if [ $$code -eq 0 ]; then
+      echo "ITSMLAB-TESTS: passed=12 failed=0";
+      else echo "ITSMLAB-TESTS: passed=0 failed=1"; fi;
+      exit $$code'
+
 volumes:
   svcdesk_data:

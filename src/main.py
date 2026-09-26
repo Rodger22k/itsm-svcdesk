@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from dora_metrics import MetricsValidationError, compute_metrics
+
 
 UTC = timezone.utc
 WARSAW = ZoneInfo("Europe/Warsaw")
@@ -232,6 +234,44 @@ async def not_found_handler(_: Request, __: Exception) -> JSONResponse:
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "svcdesk"}
+
+
+@app.post("/dora/metrics")
+async def dora_metrics(request: Request) -> dict[str, Any]:
+    try:
+        payload = await request.json()
+    except Exception as error:
+        raise validation_error("request body must be valid JSON") from error
+    try:
+        return compute_metrics(payload)
+    except MetricsValidationError as error:
+        raise validation_error(str(error)) from error
+
+
+@app.get("/dora/ticket-events")
+async def dora_ticket_events() -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    phases = (
+        ("created", "created_at", "new"),
+        ("acknowledged", "acknowledged_at", "acknowledged"),
+        ("resolved", "resolved_at", "resolved"),
+        ("closed", "closed_at", "closed"),
+    )
+    for ticket in store.list_all():
+        for phase, timestamp_field, state in phases:
+            timestamp = ticket.get(timestamp_field)
+            if timestamp is not None:
+                events.append(
+                    {
+                        "ticket_id": ticket["id"],
+                        "at": timestamp,
+                        "phase": phase,
+                        "priority": ticket["priority"],
+                        "state": state,
+                    }
+                )
+    events.sort(key=lambda item: (parse_instant(item["at"]), item["ticket_id"]))
+    return events
 
 
 @app.post("/tickets", status_code=201)
