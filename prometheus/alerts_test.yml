@@ -1,0 +1,78 @@
+# ai-generated: 90% - ChatGPT Codex drafted edge tests that distinguish the real rules from all four published mutants
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: fast burn firing edge
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds_count{job="svcdesk", instance="svcdesk:8080", http_request_method="GET", http_route="/kb/search", http_response_status_code="200"}'
+        values: '0+492x20'
+      - series: 'http_server_request_duration_seconds_count{job="svcdesk", instance="svcdesk:8080", http_request_method="GET", http_route="/kb/search", http_response_status_code="502"}'
+        values: '0+108x20'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: KbSearchAvailabilityBurnFast
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: KbSearchAvailabilityBurnFast
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: KbSearchAvailabilityBurnFast
+        exp_alerts:
+          - exp_labels:
+              service: svcdesk
+              slo: availability
+              severity: P1
+            exp_annotations:
+              summary: "KB search is consuming the availability error budget rapidly"
+
+  - name: fast burn below the real threshold
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds_count{job="svcdesk", instance="svcdesk:8080", http_request_method="GET", http_route="/kb/search", http_response_status_code="200"}'
+        values: '0+534x20'
+      - series: 'http_server_request_duration_seconds_count{job="svcdesk", instance="svcdesk:8080", http_request_method="GET", http_route="/kb/search", http_response_status_code="502"}'
+        values: '0+66x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KbSearchAvailabilityBurnFast
+        exp_alerts: []
+
+  - name: slow burn firing edge
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds_count{job="svcdesk", instance="svcdesk:8080", http_request_method="GET", http_route="/kb/search", http_response_status_code="200"}'
+        values: '0+555x20'
+      - series: 'http_server_request_duration_seconds_count{job="svcdesk", instance="svcdesk:8080", http_request_method="GET", http_route="/kb/search", http_response_status_code="502"}'
+        values: '0+45x20'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: KbSearchAvailabilityBurnSlow
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: KbSearchAvailabilityBurnSlow
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: KbSearchAvailabilityBurnSlow
+        exp_alerts:
+          - exp_labels:
+              service: svcdesk
+              slo: availability
+              severity: P2
+            exp_annotations:
+              summary: "KB search is steadily consuming the availability error budget"
+
+  - name: slow burn below the real threshold
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds_count{job="svcdesk", instance="svcdesk:8080", http_request_method="GET", http_route="/kb/search", http_response_status_code="200"}'
+        values: '0+570x20'
+      - series: 'http_server_request_duration_seconds_count{job="svcdesk", instance="svcdesk:8080", http_request_method="GET", http_route="/kb/search", http_response_status_code="502"}'
+        values: '0+30x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KbSearchAvailabilityBurnSlow
+        exp_alerts: []

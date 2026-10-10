@@ -8,10 +8,13 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from dora_metrics import MetricsValidationError, compute_metrics
+from monitoring import RequestMetricsMiddleware
 
 
 UTC = timezone.utc
@@ -213,6 +216,17 @@ def read_create_request(payload: Any) -> dict[str, Any]:
 
 store = TicketStore(os.getenv("DB_PATH", "data/svcdesk.db"))
 app = FastAPI()
+app.add_middleware(RequestMetricsMiddleware)
+
+
+@app.on_event("startup")
+async def start_kb_client() -> None:
+    app.state.kb_client = httpx.AsyncClient(timeout=httpx.Timeout(5.0))
+
+
+@app.on_event("shutdown")
+async def stop_kb_client() -> None:
+    await app.state.kb_client.aclose()
 
 
 @app.exception_handler(ApiError)
@@ -234,6 +248,39 @@ async def not_found_handler(_: Request, __: Exception) -> JSONResponse:
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "svcdesk"}
+
+
+@app.get("/metrics")
+async def metrics() -> Response:
+    return Response(
+        content=generate_latest(),
+        headers={"Content-Type": CONTENT_TYPE_LATEST},
+    )
+
+
+@app.get("/kb/search")
+async def kb_search(request: Request, q: str | None = None) -> dict[str, Any]:
+    if q is None or not 1 <= len(q) <= 200:
+        raise validation_error("q must contain 1 to 200 characters")
+
+    base_url = os.getenv("KB_INDEX_URL", "http://kb-index:8080").rstrip("/")
+    try:
+        upstream = await request.app.state.kb_client.get(
+            f"{base_url}/search",
+            params={"q": q},
+        )
+    except httpx.HTTPError as error:
+        raise ApiError(502, "upstream_unavailable", "knowledge-base index is unavailable") from error
+
+    if upstream.status_code != 200:
+        raise ApiError(502, "upstream_unavailable", "knowledge-base index is unavailable")
+
+    try:
+        payload = upstream.json()
+        hits = payload["hits"]
+    except (ValueError, KeyError, TypeError) as error:
+        raise ApiError(502, "upstream_unavailable", "knowledge-base index returned an invalid response") from error
+    return {"query": q, "hits": hits}
 
 
 @app.post("/dora/metrics")

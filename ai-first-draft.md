@@ -3,11 +3,11 @@ lab3_first_draft:
   source: ai
   tool: "ChatGPT Codex (GPT-5), 10 October 2026"
   ladder: [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.25, 0.35, 0.5, 0.75, 1.0, 2.0, 5.0]
-  verdict: TODO
-  evidence: {p99_seconds: TODO, bucket: [TODO, TODO], relative_width: TODO}
+  verdict: refuted
+  evidence: {p99_seconds: 0.1742, bucket: [0.15, 0.2], relative_width: 0.287}
 lab3_flawed_ladder:
   verdict: refuted
-  evidence: {p99_seconds: TODO, bucket: [TODO, TODO], relative_width: TODO}
+  evidence: {p99_seconds: 0.1742, bucket: [0.04, 0.5], relative_width: 2.641}
 ---
 <!-- ai-generated: 95% - ChatGPT Codex proposed the initial ladder and alert; evidence and verdict will be completed after measurement -->
 
@@ -59,15 +59,21 @@ its firing edge, quiet condition, and reset after the short window clears.
 
 ## Verdict on the draft ladder
 
-TODO after running the published `load 3` measurement. Record the measured p99, its bucket, the relative width,
-what `histogram_quantile` could report from that bucket, and whether the ladder resolves the measured p99.
+The published open-loop measurement gave p99 = 0.1742 seconds.  In the draft ladder this falls in
+`(0.15, 0.20]`, whose width is 0.05 seconds.  The relative width is `0.05 / 0.1742 = 0.287`, or 28.7%, so it is
+above the permitted 20%.  `histogram_quantile` has to interpolate somewhere between 0.15 and 0.20 seconds and
+cannot recover the distribution inside that bucket.  The draft ladder is therefore **refuted**.
 
 ## The draft alert rule
 
-TODO after selecting the final SLO. Explain what was retained from the proposed multiwindow availability alert and
-what was changed to match the measured service and the published alert probes.
+The final alert design retains the useful part of the draft: an availability error ratio evaluated over a long
+and a short window, filtered to `http_route="/kb/search"`, with a P1 fast-burn alert.  The final rules also add a
+second, lower burn rate for slower failures and tests for the exact firing edge, quiet state, reset behaviour and
+the published mutations.  Their names, windows and thresholds are kept consistent with `slo.md`.
 
 ## Verdict on the instructor's flawed ladder
 
-TODO after running the same measurement. Record the measured p99, its bucket in the instructor's ladder, the
-relative width, the possible interpolation range, and why the ladder is refuted.
+For the same p99 = 0.1742 seconds, the instructor's ladder places the result in `(0.04, 0.5]`.  That bucket is
+0.46 seconds wide, and `0.46 / 0.1742 = 2.641`, or 264.1%.  Its dense boundaries below 40 ms describe the fast
+mode, but the entire measured tail is swallowed by one bucket, so an estimated p99 could lie anywhere between
+0.04 and 0.5 seconds.  The instructor's ladder is therefore **refuted**.
