@@ -1,0 +1,60 @@
+# ai-generated: 75% - Codex adapted the course template to Mateusz's lab4-rec-1 measurements; Mateusz verified the incident data and will run promtool
+# These rules alert on symptoms visible to shop users. They deliberately avoid seeded_* metrics.
+groups:
+  - name: shop-symptoms
+    rules:
+      - alert: ShopCheckoutErrorRate
+        expr: |
+          (
+            sum(rate(traces_span_metrics_calls_total{service_name="checkout", span_kind="SPAN_KIND_SERVER", status_code="STATUS_CODE_ERROR"}[5m]))
+            /
+            sum(rate(traces_span_metrics_calls_total{service_name="checkout", span_kind="SPAN_KIND_SERVER"}[5m]))
+          ) > 0.05
+        for: 1m
+        labels:
+          service: checkout
+          system: shop
+          severity: P1
+        annotations:
+          summary: "More than 5% of checkout requests are failing"
+          description: "Customers cannot complete orders reliably; investigate checkout dependencies before individual component alerts."
+
+      - alert: ShopCheckoutSlow
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (
+              rate(traces_span_metrics_duration_milliseconds_bucket{service_name="checkout", span_kind="SPAN_KIND_SERVER"}[5m])
+            )
+          ) > 2000
+        for: 1m
+        labels:
+          service: checkout
+          system: shop
+          severity: P1
+        annotations:
+          summary: "Checkout p99 latency exceeds two seconds"
+          description: "The customer-facing checkout path is too slow even when requests eventually succeed."
+
+      - alert: AdServiceDegraded
+        expr: |
+          (
+            sum(rate(traces_span_metrics_calls_total{service_name="ad", span_kind="SPAN_KIND_SERVER", status_code="STATUS_CODE_ERROR"}[5m]))
+            /
+            sum(rate(traces_span_metrics_calls_total{service_name="ad", span_kind="SPAN_KIND_SERVER"}[5m]))
+          ) > 0.02
+          or
+          histogram_quantile(
+            0.99,
+            sum by (le) (
+              rate(traces_span_metrics_duration_milliseconds_bucket{service_name="ad", span_kind="SPAN_KIND_SERVER"}[5m])
+            )
+          ) > 5000
+        for: 1m
+        labels:
+          service: ad
+          system: shop
+          severity: P2
+        annotations:
+          summary: "Advertising service is failing or severely delayed"
+          description: "This component-level signal goes to chat and is inhibited while the customer-facing checkout P1 is active."

@@ -1,0 +1,18 @@
+# ai-generated: 65% - Codex drafted cases from Mateusz's real Lab 3 and Lab 4 alerts; Mateusz will execute the checker and inspect the results
+routes:
+  - labels: {alertname: ShopCheckoutSlow, service: checkout, system: shop, severity: P1}
+    receivers: [pager]
+  - labels: {alertname: AdServiceDegraded, service: ad, system: shop, severity: P2}
+    receivers: [chat]
+  - labels: {alertname: KbSearchAvailabilityBurnSlow, service: svcdesk, slo: availability, severity: P2}
+    receivers: [chat]
+  - labels: {alertname: ItsmRouteCheck, service: frontend, severity: P3}
+    receivers: [chat]
+
+inhibitions:
+  - source: {alertname: ShopCheckoutSlow, service: checkout, system: shop, severity: P1}
+    target: {alertname: AdServiceDegraded, service: ad, system: shop, severity: P2}
+    inhibited: true
+  - source: {alertname: ShopCheckoutSlow, service: checkout, system: shop, severity: P1}
+    target: {alertname: AdServiceDegraded, service: ad, system: staging, severity: P2}
+    inhibited: false

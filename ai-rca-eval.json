@@ -1,0 +1,50 @@
+{
+  "investigator": {
+    "agent": "course agent loop agent.py",
+    "model": "gemini-3.5-flash-lite",
+    "mcp_server": "prom_mcp.py (mcp 2.2.0)",
+    "transcript": "ai-rca/transcript.md"
+  },
+  "hypotheses": [
+    {
+      "id": "G1",
+      "hypothesis": "Hypothesis: The checkout service experienced latency degradation due to downstream client and server span call volume shifts, supported by the query `sum(rate(traces_span_metrics_calls_total{service_name=\"checkout\"}[5m])) by (span_name)`.",
+      "component": "checkout",
+      "predicts": "histogram_quantile(0.99, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{service_name=\"checkout\"}[5m]))) > 1000",
+      "at": "2026-10-12T05:07:00Z",
+      "result": false,
+      "verdict": "hallucinated",
+      "evidence": "At 05:07:00Z the comparison returned no series. The transcript showed call rates, but it did not produce evidence that checkout latency exceeded 1000 ms or that a call-volume shift caused the page."
+    },
+    {
+      "id": "G2",
+      "hypothesis": "Hypothesis: System-wide load fluctuations during the incident window contributed to performance bottlenecks, supported by the query `sum(rate(traces_span_metrics_calls_total[5m])) by (service_name)`.",
+      "component": null,
+      "predicts": "sum(rate(traces_span_metrics_calls_total[5m])) > 2 * sum(rate(traces_span_metrics_calls_total[5m] offset 5m))",
+      "at": "2026-10-12T05:07:00Z",
+      "result": false,
+      "verdict": "hallucinated",
+      "evidence": "At 05:07:00Z the comparison returned no series: the total span-call rate was not more than twice its value five minutes earlier. The agent treated ordinary counter growth as proof of a load fluctuation."
+    },
+    {
+      "id": "G3",
+      "hypothesis": "Hypothesis: Specific span activities within the checkout service, such as currency conversion and product catalog lookups, contributed to overall transaction latency, supported by the query `sum(rate(traces_span_metrics_calls_total{service_name=\"checkout\"}[5m])) by (span_name)`.",
+      "component": "checkout",
+      "predicts": "histogram_quantile(0.99, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{service_name=\"checkout\",span_name=~\"oteldemo.CurrencyService/Convert|oteldemo.ProductCatalogService/GetProduct\"}[5m]))) > 1000",
+      "at": "2026-10-12T05:07:00Z",
+      "result": false,
+      "verdict": "hallucinated",
+      "evidence": "At 05:07:00Z the comparison returned no series, so the selected currency-conversion and product-catalog lookup spans did not have a combined p99 above 1000 ms. Call counts alone did not establish a latency cause."
+    },
+    {
+      "id": "G4",
+      "hypothesis": "Hypothesis: Increased request rates across dependent services like frontend and flagd after 05:01:00Z caused resource saturation and subsequent checkout latency, supported by the query `sum(rate(traces_span_metrics_calls_total[5m])) by (service_name)`.",
+      "component": "frontend",
+      "predicts": "sum(rate(traces_span_metrics_calls_total{service_name=~\"frontend|flagd\"}[5m])) > 2 * sum(rate(traces_span_metrics_calls_total{service_name=~\"frontend|flagd\"}[5m] offset 5m))",
+      "at": "2026-10-12T05:07:00Z",
+      "result": false,
+      "verdict": "hallucinated",
+      "evidence": "At 05:07:00Z the comparison returned no series. The combined frontend and flagd request rate was not more than twice the preceding value, and the agent collected no resource-saturation metric."
+    }
+  ]
+}
