@@ -13,7 +13,13 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY src ./src
 COPY tests ./tests
 COPY fixtures ./fixtures
-RUN mkdir -p /data
+
+RUN groupadd --system svcdesk \
+    && useradd --system --gid svcdesk --home-dir /nonexistent --shell /usr/sbin/nologin svcdesk \
+    && mkdir -p /data \
+    && chown -R svcdesk:svcdesk /app /data
+
+USER svcdesk
 
 EXPOSE 8080
 
