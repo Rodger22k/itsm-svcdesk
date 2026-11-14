@@ -28,24 +28,15 @@ async def create_ticket_with_async_repository(repository, ticket):
 
 
 async def parse_request(request):
-    # ruleid: svcdesk-broad-exception-in-async
-    try:
-        return await request.json()
-    except Exception as error:
-        raise ValueError("invalid request") from error
+    # ruleid: svcdesk-direct-request-json
+    return await request.json()
+
+
+async def parse_prevalidated_request(parser):
+    # ok: svcdesk-direct-request-json
+    return await parser.parse_json()
 
 
 def parse_request_synchronously(request):
-    # ok: svcdesk-broad-exception-in-async
-    try:
-        return request.json()
-    except Exception as error:
-        raise ValueError("invalid request") from error
-
-
-async def parse_expected_validation_error(request):
-    # ok: svcdesk-broad-exception-in-async
-    try:
-        return await request.json()
-    except ValueError as error:
-        raise ValueError("invalid request") from error
+    # ok: svcdesk-direct-request-json
+    return request.json()

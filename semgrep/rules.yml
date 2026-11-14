@@ -14,16 +14,8 @@ rules:
           async def $HANDLER(...):
               ...
 
-  - id: svcdesk-broad-exception-in-async
+  - id: svcdesk-direct-request-json
     languages: [python]
     severity: WARNING
-    message: A broad Exception handler in async request code can hide unrelated programming errors
-    patterns:
-      - pattern: |
-          try:
-              ...
-          except Exception as $ERROR:
-              ...
-      - pattern-inside: |
-          async def $HANDLER(...):
-              ...
+    message: Direct request JSON parsing can read an unbounded body into memory
+    pattern: await $REQUEST.json()
