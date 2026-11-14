@@ -1,0 +1,29 @@
+# ai-generated: 90% - OpenAI Codex drafted two svcdesk-specific Semgrep rules; the student validated their positive and negative cases
+rules:
+  - id: svcdesk-sync-store-call-in-async
+    languages: [python]
+    severity: WARNING
+    message: A synchronous TicketStore call inside async code can block the service worker
+    patterns:
+      - pattern-either:
+          - pattern: store.create(...)
+          - pattern: store.get(...)
+          - pattern: store.update(...)
+          - pattern: store.list_all(...)
+      - pattern-inside: |
+          async def $HANDLER(...):
+              ...
+
+  - id: svcdesk-broad-exception-in-async
+    languages: [python]
+    severity: WARNING
+    message: A broad Exception handler in async request code can hide unrelated programming errors
+    patterns:
+      - pattern: |
+          try:
+              ...
+          except Exception as $ERROR:
+              ...
+      - pattern-inside: |
+          async def $HANDLER(...):
+              ...
